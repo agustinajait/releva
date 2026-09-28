@@ -48,7 +48,7 @@ export const SAMPLE_QUESTIONNAIRE: QuestionnaireDefinitionInput = {
       category: 'personas',
       required: true,
       spoken: 'con menores',
-      indicator: { aggregate: 'count_true', label: 'Puntos con menores' },
+      indicator: { aggregate: 'count_true', label: 'Relevamientos con menores' },
     },
     {
       key: 'menores_cantidad',
@@ -96,7 +96,7 @@ export const SAMPLE_QUESTIONNAIRE: QuestionnaireDefinitionInput = {
       category: 'animales',
       required: true,
       confirm: false,
-      indicator: { aggregate: 'count_true', label: 'Puntos con animales' },
+      indicator: { aggregate: 'count_true', label: 'Relevamientos con animales' },
     },
     {
       key: 'animales_tipo',
