@@ -1,0 +1,22 @@
+{
+  "name": "releva",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build:core": "npm run build -w @releva/core",
+    "db:up": "docker compose -f infra/docker-compose.yml up -d",
+    "db:migrate": "npm run migrate -w @releva/api",
+    "db:seed": "npm run seed -w @releva/api",
+    "dev:api": "npm run dev -w @releva/api",
+    "dev:web": "npm run dev -w @releva/web",
+    "dev:mobile": "npm run start -w @releva/mobile",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
