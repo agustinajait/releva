@@ -68,6 +68,57 @@ describe('autenticación', () => {
   });
 });
 
+describe('sesiones y endurecimiento', () => {
+  it('desactivar o cambiar el rol invalida el token de acceso en el acto', async () => {
+    const super_ = await env.login('super@t.local');
+    const u = await env.api(super_, 'POST', '/users', { email: 'rol-a@t.local', name: 'Rol', role: 'client_admin', password: 'clave-segura-1', clientId: env.ids.clientA });
+    const t = await env.login('rol-a@t.local', 'clave-segura-1');
+    expect((await env.api(t, 'GET', '/users')).status).toBe(200);
+    await env.api(super_, 'PATCH', `/users/${u.body.id}`, { role: 'analyst' });
+    expect((await env.api(t, 'GET', '/users')).status).toBe(401);
+  });
+
+  it('desactivar un cliente corta el acceso de sus usuarios', async () => {
+    const super_ = await env.login('super@t.local');
+    const c = await env.api(super_, 'POST', '/clients', { name: 'Cliente C', slug: 'cliente-c' });
+    await env.api(super_, 'POST', '/users', { email: 'x-c@t.local', name: 'XC', role: 'analyst', password: 'clave-segura-1', clientId: c.body.id });
+    const t = await env.login('x-c@t.local', 'clave-segura-1');
+    expect((await env.api(t, 'GET', '/projects')).status).toBe(200);
+    await env.api(super_, 'PATCH', `/clients/${c.body.id}`, { active: false });
+    expect((await env.api(t, 'GET', '/projects')).status).toBe(401);
+    expect((await env.api(null, 'POST', '/auth/login', { email: 'x-c@t.local', password: 'clave-segura-1' })).status).toBe(401);
+  });
+
+  it('un admin de cliente no puede tomar el control de otro admin', async () => {
+    const super_ = await env.login('super@t.local');
+    const peer = await env.api(super_, 'POST', '/users', { email: 'peer-a@t.local', name: 'Par', role: 'client_admin', password: 'clave-segura-1', clientId: env.ids.clientA });
+    const t = await env.login('admin-a@t.local');
+    expect((await env.api(t, 'PATCH', `/users/${peer.body.id}`, { password: 'otra-clave-99' })).status).toBe(403);
+    expect((await env.api(t, 'PATCH', `/users/${peer.body.id}`, { active: false })).status).toBe(403);
+  });
+
+  it('limita los intentos de login por cuenta aunque cambie la IP', async () => {
+    const { buildApp } = await import('../src/app.js');
+    const { loadConfig } = await import('../src/config.js');
+    const app = await buildApp(
+      loadConfig({ DATABASE_URL: 'postgres://x@localhost/x', JWT_SECRET: 'test-secret-test-secret-test-secret-123', LOG_LEVEL: 'silent', LOGIN_RATE_LIMIT: '3', TRUST_PROXY_HOPS: '1' }),
+      env.pool,
+    );
+    const codes: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      const r = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/login',
+        headers: { 'x-forwarded-for': `10.0.0.${i}` },
+        payload: { email: 'analyst-b@t.local', password: 'mala-clave-1' },
+      });
+      codes.push(r.statusCode);
+    }
+    await app.close();
+    expect(codes).toEqual([401, 401, 401, 429, 429]);
+  });
+});
+
 describe('autorización por roles', () => {
   it('el relevador no puede crear proyectos ni ver usuarios', async () => {
     const t = await env.login('surveyor-a@t.local');

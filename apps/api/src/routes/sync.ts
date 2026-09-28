@@ -62,11 +62,7 @@ async function ingest(
   item: SurveySyncItem,
   definitions: Map<string, QuestionnaireDefinition>,
 ): Promise<SyncItemResult> {
-  // 1. Idempotencia.
-  const dup = await db.query<{ id: string; point_id: string }>('SELECT id, point_id FROM surveys WHERE client_uuid = $1', [item.clientUuid]);
-  if (dup.rows[0]) return { clientUuid: item.clientUuid, status: 'duplicate', surveyId: dup.rows[0].id, pointId: dup.rows[0].point_id };
-
-  // 2. Proyecto visible y relevador asignado.
+  // 1. Proyecto visible y relevador asignado (antes que nada: no se revela nada de otros proyectos).
   const proj = await db.query<{ client_id: string; dedupe_radius_m: number; status: string }>(
     `SELECT p.client_id, p.dedupe_radius_m, p.status FROM projects p
       WHERE p.id = $1 AND ($2 <> 'surveyor' OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = $3))`,
@@ -74,6 +70,13 @@ async function ingest(
   );
   const project = proj.rows[0];
   if (!project) throw new ItemRejected('Proyecto inexistente o no asignado a este usuario');
+
+  // 2. Idempotencia: el mismo relevamiento reenviado desde el celular, en el mismo proyecto.
+  const dup = await db.query<{ id: string; point_id: string }>(
+    'SELECT id, point_id FROM surveys WHERE client_uuid = $1 AND project_id = $2',
+    [item.clientUuid, item.projectId],
+  );
+  if (dup.rows[0]) return { clientUuid: item.clientUuid, status: 'duplicate', surveyId: dup.rows[0].id, pointId: dup.rows[0].point_id };
   if (project.status !== 'active') throw new ItemRejected('El proyecto está archivado');
 
   // 3. Recorrido (opcional) del mismo proyecto.

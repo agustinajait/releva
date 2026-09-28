@@ -231,8 +231,20 @@ export type ParseResult =
   | { ok: true; definition: QuestionnaireDefinition }
   | { ok: false; issues: DefinitionIssue[] };
 
+const MAX_DEPTH = 32;
+
+function tooDeep(x: unknown, depth = 0): boolean {
+  if (depth > MAX_DEPTH) return true;
+  if (x && typeof x === 'object') {
+    for (const v of Object.values(x as Record<string, unknown>)) if (tooDeep(v, depth + 1)) return true;
+  }
+  return false;
+}
+
 /** Valida un cuestionario (p. ej. antes de publicarlo). Nunca lanza. */
 export function parseQuestionnaire(input: unknown): ParseResult {
+  // Protege contra condiciones anidadas sin límite (desborde de pila).
+  if (tooDeep(input)) return { ok: false, issues: [{ path: [], message: `El cuestionario tiene más de ${MAX_DEPTH} niveles de anidamiento` }] };
   const r = QuestionnaireDefinitionSchema.safeParse(input);
   if (r.success) return { ok: true, definition: r.data };
   return {

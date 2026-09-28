@@ -242,7 +242,7 @@ CREATE TABLE surveys (
   questionnaire_version_id   uuid NOT NULL,
   surveyor_id                uuid,
   -- Generado por el celular: garantiza que un reenvío offline no duplique.
-  client_uuid                uuid NOT NULL UNIQUE,
+  client_uuid                uuid NOT NULL,
   status                     text NOT NULL CHECK (status IN ('completed', 'incomplete', 'discarded')),
   location                   geography(Point, 4326) NOT NULL,
   accuracy_m                 real CHECK (accuracy_m >= 0),
@@ -252,6 +252,8 @@ CREATE TABLE surveys (
   completed_at               timestamptz,
   received_at                timestamptz NOT NULL DEFAULT now(),
   UNIQUE (client_id, id),
+  -- Único por cliente (no global): un cliente no puede detectar ni bloquear UUIDs de otro.
+  UNIQUE (client_id, client_uuid),
   FOREIGN KEY (client_id, project_id) REFERENCES projects(client_id, id) ON DELETE CASCADE,
   FOREIGN KEY (client_id, point_id) REFERENCES points(client_id, id) ON DELETE CASCADE,
   FOREIGN KEY (client_id, route_id) REFERENCES routes(client_id, id),
@@ -344,4 +346,4 @@ ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_log FORCE ROW LEVEL SECURITY;
 CREATE POLICY audit_read ON audit_log FOR SELECT USING (app_is_super() OR client_id = app_client_id());
 CREATE POLICY audit_insert ON audit_log FOR INSERT
-  WITH CHECK (app_is_super() OR client_id IS NULL OR client_id = app_client_id());
+  WITH CHECK (app_is_super() OR client_id = app_client_id());

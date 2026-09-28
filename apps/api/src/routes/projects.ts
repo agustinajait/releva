@@ -41,10 +41,11 @@ const PolygonGeo = z.object({
 const LineGeo = z.object({ type: z.literal('LineString'), coordinates: z.array(z.tuple([z.number(), z.number()])).min(2) });
 
 async function assertValidGeometry(db: Db, geojson: unknown) {
-  const { rows } = await db.query<{ reason: string }>(
-    `SELECT ST_IsValidReason(ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)) AS reason`,
+  const { rows } = await db.query<{ reason: string; points: number }>(
+    `SELECT ST_IsValidReason(g) AS reason, ST_NPoints(g) AS points FROM (SELECT ST_SetSRID(ST_GeomFromGeoJSON($1), 4326) AS g) x`,
     [JSON.stringify(geojson)],
   );
+  if ((rows[0]?.points ?? 0) > 50_000) throw badRequest('La geometría tiene demasiados vértices (máximo 50.000)');
   if (rows[0]?.reason !== 'Valid Geometry') throw badRequest(`Geometría inválida: ${rows[0]?.reason}`);
 }
 
@@ -263,12 +264,16 @@ export async function projectRoutes(app: FastifyInstance) {
     app.post(`/routes/:id/${action}`, { preHandler: requirePermission('routes:operate') }, async (req) => {
       const { id } = parse(Id, req.params);
       return req.db(async (db) => {
-        const { rows } = await db.query<{ client_id: string; status: string; surveyor_id: string | null }>(
-          'SELECT client_id, status, surveyor_id FROM routes WHERE id = $1 FOR UPDATE',
+        const { rows } = await db.query<{ client_id: string; project_id: string; status: string; surveyor_id: string | null }>(
+          'SELECT client_id, project_id, status, surveyor_id FROM routes WHERE id = $1 FOR UPDATE',
           [id],
         );
         const r = rows[0];
         if (!r) throw notFound('Recorrido');
+        // El relevador solo opera recorridos de proyectos a los que está asignado.
+        await assertProjectAccess(db, req, r.project_id).catch(() => {
+          throw notFound('Recorrido');
+        });
         if (r.surveyor_id && r.surveyor_id !== req.actor.id) throw badRequest('El recorrido está asignado a otro relevador');
         if (action === 'start' && r.status === 'finished') throw badRequest('El recorrido ya finalizó');
         if (action === 'finish' && r.status !== 'in_progress') throw badRequest('El recorrido no está en curso');

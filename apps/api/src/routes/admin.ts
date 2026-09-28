@@ -164,6 +164,10 @@ export async function adminRoutes(app: FastifyInstance) {
       const current = (await db.query<{ role: Role }>('SELECT role FROM users WHERE id = $1', [id])).rows[0];
       if (!current) throw notFound('Usuario');
       if (!assignableRoles(req.actor.role).includes(current.role)) throw forbidden('No podés modificar a este usuario');
+      // Entre pares: un admin de cliente no puede tomar el control de otro admin (contraseña, rol, estado).
+      if (req.actor.role !== 'super_admin' && current.role === req.actor.role && id !== req.actor.id) {
+        throw forbidden('Solo un super admin puede modificar a otro administrador');
+      }
       const { rows } = await db.query(
         `UPDATE users SET name = coalesce($2, name), role = coalesce($3, role), active = coalesce($4, active),
                 password_hash = coalesce($5, password_hash)
@@ -171,7 +175,7 @@ export async function adminRoutes(app: FastifyInstance) {
           RETURNING id, email, name, role, active, client_id AS "clientId"`,
         [id, body.name ?? null, body.role ?? null, body.active ?? null, passwordHash],
       );
-      if (body.active === false || passwordHash) {
+      if (body.active === false || passwordHash || (body.role && body.role !== current.role)) {
         await db.query('UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL', [id]);
       }
       const { password: _omit, ...logged } = body;

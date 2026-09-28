@@ -96,14 +96,31 @@ el tipo y las opciones del campo; lo que no valida se descarta. Un dato nunca pa
 sin la confirmación del relevador. Nada se completa por inferencia: lo no dicho queda `unknown`.
 
 **Proveedores de voz e IA desacoplados.** Interfaces `SpeechToText`, `TextToSpeech` e
-`Interpreter` en el núcleo. En esta etapa: TTS del dispositivo (`expo-speech`), STT e intérprete
-con implementaciones de desarrollo reemplazables. Cambiar de proveedor es escribir un adaptador,
-no tocar la app.
+`Interpreter` en el núcleo. En esta etapa:
+- TTS: voz del dispositivo (`expo-speech`).
+- STT: la respuesta se escribe en pantalla (modo desarrollo) y entra por el mismo camino que
+  entrará la transcripción real.
+- Intérprete: `DirectAnswerInterpreter`, sin IA. Entiende respuestas directas (sí/no, "no sé",
+  números, opciones nombradas y "sí, una mochila"). Es deliberadamente conservador: si no
+  entiende, no propone nada y RELEVA repregunta. La extracción de varios datos de una frase libre
+  ("una mujer con un chico y tres bolsos") es el trabajo del intérprete con IA de la próxima etapa,
+  con el mismo contrato.
+Cambiar de proveedor es escribir un adaptador y cambiar una línea en `apps/mobile/App.tsx`.
+
+**Comandos de voz con palabra de activación.** `parseCommand` exige empezar con "RELEVA" para no
+disparar acciones por conversaciones de fondo ("RELEVA, tomá latitud", "RELEVA, repetí",
+"RELEVA, cancelá el punto", "RELEVA, sincronizá", "RELEVA, terminá el recorrido").
 
 **Offline primero.** Todo relevamiento se escribe primero en SQLite del dispositivo, en una cola
 (outbox) con UUID generado en el celular. La sincronización reintenta con backoff y el servidor
 es idempotente por ese UUID: reenviar dos veces no duplica. Nada se borra localmente hasta que
 el servidor confirma.
+
+**Sesiones que se cortan en el acto.** El token de acceso dura 15 minutos, pero en cada request
+se verifica el estado actual del usuario: si se lo desactiva, se le cambia el rol o se desactiva
+su cliente, pierde el acceso inmediatamente. Los refresh tokens rotan y su reutilización revoca
+todas las sesiones del usuario. El límite de intentos de login es por cuenta (no solo por IP) y
+la API solo confía en la cantidad de proxies configurada (`TRUST_PROXY_HOPS`).
 
 **Auditoría inmutable.** `audit_log` es solo-inserción (un trigger impide UPDATE/DELETE).
 Se registra quién, qué entidad, qué acción, cuándo y desde qué cliente.
@@ -165,7 +182,21 @@ Si durante un punto activo se detecta movimiento, la entrevista se pausa (el pun
 localmente) y se retoma al detenerse. La transición está implementada como función pura y
 testeada: no depende de la UI.
 
-## 7. Qué queda para las próximas etapas
+## 7. Revisión de seguridad de esta etapa
+
+Una revisión independiente del backend no encontró forma de cruzar datos entre clientes ni
+inyección SQL. Encontró y se corrigieron: un relevador podía iniciar recorridos de proyectos no
+asignados; la idempotencia del sync podía revelar ids de otro proyecto (ahora se verifica el
+proyecto primero y el UUID es único por cliente); límite de login evadible rotando
+`X-Forwarded-For`; un admin de cliente podía modificar a otro admin; un cambio de rol no cortaba
+la sesión; límites de tamaño/anidamiento en cuestionarios, geometrías y datos sincronizados.
+
+Pendiente para producción: conectar la API con un rol de base de datos distinto del dueño de las
+tablas (hoy `releva_app` es dueño; RLS está forzado igual, pero un rol separado agrega una barrera
+más), mover el refresh token del panel web a una cookie httpOnly, y usar un proveedor de teselas
+con acuerdo de uso en lugar de los servidores públicos de OpenStreetMap.
+
+## 8. Qué queda para las próximas etapas
 
 - Motor conversacional completo con un proveedor de IA real (el contrato ya está definido).
 - STT real on-device o en la nube, y activación por palabra clave ("RELEVA, tomá latitud").

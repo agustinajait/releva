@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { permissionsOf, type Role } from '@releva/core';
 import { withActor, type Actor } from '../db/pool.js';
@@ -53,7 +53,20 @@ export async function authRoutes(app: FastifyInstance) {
 
   app.post(
     '/auth/login',
-    { config: { rateLimit: { max: config.LOGIN_RATE_LIMIT, timeWindow: '1 minute' } } },
+    {
+      config: {
+        // Por cuenta y no solo por IP: frena la fuerza bruta aunque el atacante rote direcciones.
+        rateLimit: {
+          max: config.LOGIN_RATE_LIMIT,
+          timeWindow: '1 minute',
+          hook: 'preHandler', // después de leer el cuerpo, para conocer el email
+          keyGenerator: (req: FastifyRequest) => {
+            const email = (req.body as { email?: unknown } | undefined)?.email;
+            return `login:${typeof email === 'string' ? email.trim().toLowerCase() : req.ip}`;
+          },
+        },
+      },
+    },
     async (req) => {
       const body = parse(z.object({ email: z.string().trim().toLowerCase().email(), password: z.string().min(1).max(200) }), req.body);
       const result = await withActor(pool, SYSTEM, async (db) => {

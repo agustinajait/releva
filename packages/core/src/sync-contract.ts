@@ -19,7 +19,7 @@ export const SyncLocationSchema = z.object({
 
 export const SyncFactSchema = z.object({
   fieldKey: z.string().min(1).max(63),
-  value: z.union([z.number(), z.boolean(), z.string().max(2000), z.array(z.string()), z.null()]),
+  value: z.union([z.number(), z.boolean(), z.string().max(2000), z.array(z.string().max(200)).max(50), z.null()]),
   status: z.enum(FACT_STATUSES),
   source: z.enum(FACT_SOURCES),
   questionKey: z.string().max(63).optional(),

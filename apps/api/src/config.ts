@@ -11,7 +11,12 @@ const EnvSchema = z.object({
     .transform((s) => s.split(',').map((o) => o.trim()).filter(Boolean)),
   ACCESS_TOKEN_TTL: z.string().default('15m'),
   REFRESH_TOKEN_DAYS: z.coerce.number().int().positive().default(30),
-  /** Intentos de login por minuto por IP. */
+  /**
+   * Cantidad de proxies de confianza delante de la API (0 = ninguno). Con un valor
+   * mayor al real, un atacante podría falsear su IP con X-Forwarded-For.
+   */
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
+  /** Intentos de login por minuto, por cuenta (email). */
   LOGIN_RATE_LIMIT: z.coerce.number().int().positive().default(10),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });

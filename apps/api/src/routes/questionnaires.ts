@@ -38,6 +38,7 @@ export async function questionnaireRoutes(app: FastifyInstance) {
   app.post('/projects/:id/questionnaires', { preHandler: requirePermission('questionnaires:manage') }, async (req, reply) => {
     const { id } = parse(Id, req.params);
     const body = parse(z.object({ name: z.string().trim().min(2).max(160), definition: z.unknown().optional() }), req.body);
+    if (JSON.stringify(body.definition ?? {}).length > 512_000) throw badRequest('El cuestionario es demasiado grande');
     const row = await req.db(async (db) => {
       const p = await assertProjectAccess(db, req, id);
       const q = await db.query<{ id: string }>(

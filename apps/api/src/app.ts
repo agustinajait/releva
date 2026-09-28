@@ -27,7 +27,8 @@ export async function buildApp(config: Config, pool: pg.Pool): Promise<FastifyIn
       // Nunca loguear credenciales ni tokens.
       redact: ['req.headers.authorization', 'req.body.password', 'req.body.refreshToken'],
     },
-    trustProxy: true,
+    // Confía solo en la cantidad de proxies configurada (X-Forwarded-For no es falsificable más allá).
+    trustProxy: (_address: string, hop: number) => hop < config.TRUST_PROXY_HOPS,
     bodyLimit: 1024 * 1024,
   });
 

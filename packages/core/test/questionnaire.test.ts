@@ -47,6 +47,15 @@ describe('validación del cuestionario', () => {
     expect(parseQuestionnaire(d).ok).toBe(false);
   });
 
+  it('rechaza condiciones anidadas sin límite sin desbordar la pila', () => {
+    const d: any = clone(SAMPLE_QUESTIONNAIRE);
+    let c: any = { field: 'personas', op: 'known' };
+    for (let i = 0; i < 5000; i++) c = { not: c };
+    d.fields[3].visibleIf = c;
+    const r = parseQuestionnaire(d);
+    expect(r.ok).toBe(false);
+  });
+
   it('nunca lanza con basura', () => {
     expect(parseQuestionnaire(null).ok).toBe(false);
     expect(parseQuestionnaire('texto').ok).toBe(false);

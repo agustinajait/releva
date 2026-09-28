@@ -114,6 +114,18 @@ describe('sincronización desde la app', () => {
     expect(r.body.results[0]).toMatchObject({ status: 'rejected', error: 'Proyecto inexistente o no asignado a este usuario' });
   });
 
+  it('un UUID ya usado en otro proyecto no revela nada del otro relevamiento', async () => {
+    const r = await sync(surveyorA, [{ ...first, projectId: env.ids.projectB!, questionnaireVersionId: env.ids.versionB! }]);
+    expect(r.body.results[0].status).toBe('rejected');
+    expect(r.body.results[0].surveyId).toBeUndefined();
+  });
+
+  it('la unicidad del UUID es por cliente: otro cliente puede usar el mismo', async () => {
+    const surveyorB = await env.login('surveyor-b@t.local');
+    const r = await sync(surveyorB, [{ ...first, projectId: env.ids.projectB!, routeId: env.ids.routeB!, questionnaireVersionId: env.ids.versionB! }]);
+    expect(r.body.results[0].status).toBe('accepted');
+  });
+
   it('rechaza versiones de cuestionario de otro proyecto', async () => {
     const r = await sync(surveyorA, [survey({ questionnaireVersionId: env.ids.versionB! })]);
     expect(r.body.results[0].status).toBe('rejected');
@@ -234,6 +246,12 @@ describe('zonas y recorridos', () => {
     expect(bowtie.body.message).toMatch(/Geometría inválida/);
   });
 
+  it('el relevador no puede operar recorridos de proyectos no asignados', async () => {
+    const other = await env.api(adminA, 'POST', '/projects', { name: 'Proyecto ajeno' });
+    const route = await env.api(adminA, 'POST', `/projects/${other.body.id}/routes`, { name: 'Oculto' });
+    expect((await env.api(surveyorA, 'POST', `/routes/${route.body.id}/start`)).status).toBe(404);
+  });
+
   it('el relevador inicia y finaliza su recorrido', async () => {
     const start = await env.api(surveyorA, 'POST', `/routes/${env.ids.routeA}/start`);
     expect(start.body.status).toBe('in_progress');
@@ -267,7 +285,11 @@ describe('auditoría', () => {
 
   it('cada cliente ve solo su auditoría', async () => {
     const b = await env.login('admin-b@t.local');
-    const r = await env.api(b, 'GET', '/audit?entity=survey');
-    expect(r.body).toHaveLength(0);
+    const r = await env.api(b, 'GET', '/audit?limit=500');
+    expect(r.body.length).toBeGreaterThan(0);
+    expect(r.body.every((a: any) => a.clientName === 'Cliente B' || a.clientName === null)).toBe(true);
+    const aSurveys = await env.api(adminA, 'GET', '/audit?entity=survey&limit=500');
+    const bIds = new Set(r.body.map((a: any) => a.id));
+    expect(aSurveys.body.some((a: any) => bIds.has(a.id))).toBe(false);
   });
 });
