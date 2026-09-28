@@ -25,7 +25,7 @@ infra           docker-compose con PostGIS
 # 1. Dependencias (una sola vez, desde la raíz)
 npm install
 
-# 2. Base de datos (PostgreSQL + PostGIS en el puerto 5432)
+# 2. Base de datos (PostgreSQL + PostGIS en el puerto 5433, para no chocar con un PostgreSQL local)
 npm run db:up
 
 # 3. Configuración de la API

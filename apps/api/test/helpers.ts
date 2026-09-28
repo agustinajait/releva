@@ -11,8 +11,8 @@ import { loadConfig } from '../src/config.js';
  * TEST_ADMIN_URL: conexión de superusuario para crear la base y las extensiones.
  * TEST_DATABASE_URL: conexión del rol de aplicación (no superusuario, RLS aplica).
  */
-const ADMIN_URL = process.env.TEST_ADMIN_URL ?? 'postgres://postgres:postgres@localhost:5432/postgres';
-const DB_URL = process.env.TEST_DATABASE_URL ?? 'postgres://releva_app:releva_app_dev@localhost:5432/releva_test';
+const ADMIN_URL = process.env.TEST_ADMIN_URL ?? 'postgres://postgres:postgres@localhost:5433/postgres';
+const DB_URL = process.env.TEST_DATABASE_URL ?? 'postgres://releva_app:releva_app_dev@localhost:5433/releva_test';
 
 export const PASSWORD = 'test-password-123';
 
