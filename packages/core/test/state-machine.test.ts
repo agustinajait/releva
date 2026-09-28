@@ -116,6 +116,13 @@ describe('máquina de estados', () => {
     expect(transition(paused, { type: 'FINALIZAR_RECORRIDO' }).ok).toBe(false);
   });
 
+  it('se puede descartar el punto mientras RELEVA escucha o confirma', () => {
+    const listening = run([...toQuestion, { type: 'ESCUCHAR' }]);
+    expect(run([{ type: 'DESCARTAR_PUNTO' }], listening)).toMatchObject({ state: 'VEHICULO_DETENIDO', pointId: null });
+    const confirming = run([{ type: 'RESPUESTA_RECIBIDA' }, { type: 'RESPUESTA_PROCESADA', completo: true }], listening);
+    expect(run([{ type: 'DESCARTAR_PUNTO' }], confirming).state).toBe('VEHICULO_DETENIDO');
+  });
+
   it('confirmación negativa vuelve a preguntar', () => {
     const s = run([
       ...toQuestion,

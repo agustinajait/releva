@@ -10,3 +10,4 @@ export * from './questionnaire/conditions.js';
 export * from './questionnaire/progress.js';
 export * from './questionnaire/sample.js';
 export * from './offline/outbox.js';
+export * from './speech.js';

@@ -5,7 +5,8 @@
   "workspaces": [
     "packages/*",
     "apps/api",
-    "apps/web"
+    "apps/web",
+    "apps/mobile"
   ],
   "scripts": {
     "build:core": "npm run build -w @releva/core",

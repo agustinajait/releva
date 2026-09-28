@@ -172,6 +172,7 @@ export function transition(s: Snapshot, e: AppEvent): TransitionResult {
     case 'ESCUCHANDO':
       if (e.type === 'RESPUESTA_RECIBIDA') return ok({ state: 'PROCESANDO_RESPUESTA' });
       if (e.type === 'PREGUNTAR') return ok({ state: 'PREGUNTANDO', questionKey: e.questionKey }); // repetir
+      if (e.type === 'DESCARTAR_PUNTO') return ok({ state: 'VEHICULO_DETENIDO', pointId: null, questionKey: null });
       break;
 
     case 'PROCESANDO_RESPUESTA':
@@ -183,6 +184,7 @@ export function transition(s: Snapshot, e: AppEvent): TransitionResult {
     case 'CONFIRMANDO':
       if (e.type === 'CONFIRMACION_SI') return ok({ state: 'GUARDANDO' });
       if (e.type === 'CONFIRMACION_NO') return ok({ state: 'PREGUNTANDO' });
+      if (e.type === 'DESCARTAR_PUNTO') return ok({ state: 'VEHICULO_DETENIDO', pointId: null, questionKey: null });
       break;
 
     case 'GUARDANDO':
